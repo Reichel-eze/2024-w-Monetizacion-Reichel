@@ -8,13 +8,23 @@ class Contenido {
   var property esContenidoOfensivo = false    // la inicalizo como false (que no es ofensivo)  ---> "marcada como “contenido ofensivo” por su autor (o debido al pedido de otros usuarios)"
 
   // "El usuario puede cambiar en cualquier momento la forma de monetizar cada uno de sus contenidos, pero sólo puede aplicar una a cada uno."
-  var property monetizacion                   // seria la forma/estrategia de monetizacion, la forma en que el contenido se cotiza (cada contenido tiene una monetizacion)
+  var monetizacion                   // seria la forma/estrategia de monetizacion, la forma en que el contenido se cotiza (cada contenido tiene una monetizacion)
+
+  method monetizacion(nuevaMonetizacion) {          // mi propio setter de monetizacion ("valido en el propia setter") ("es decir siempre que se settee la monetizacion, primero verifico que pueda monetizar mi contenido con dicha monetizacion")
+    if(!nuevaMonetizacion.puedeMonetizarse(self)){
+      throw new DomainException(message="Este contenido NO soporta la forma de monetizacion")   // Si NO se puede aplicar la monetizacion (!), entonces tenemos una excepcion
+    }
+    monetizacion = nuevaMonetizacion                // si pasa la excepcion, se asigna correctamente la monetizacion ("puede monetizarse")
+  }
+
 
   method esPopular()                          // metodo abstracto ()"todo contenido tiene que entender este mensaje") (cada subclase lo desarolla)
   method recaudacionMaxima()                  // metodo abstracto (cada subclase lo desarolla)                   
 
   method recaudacion() = monetizacion.recaudacionDe(self) // la recaudacion del contendio depende de su forma de monetizacion 
        
+  // method puedeMonetizarse() = monetizacion.puedeMonetizarse()
+
 }
 
 class Video inherits Contenido {
@@ -47,18 +57,27 @@ object publicidad {   // es un objeto porque cualquier publicidad va a tener el 
     0.05 * contenido.cantidadDeVistas() + 
     if(contenido.esPopular()) 2000 else 0     
     ).min(contenido.recaudacionMaxima())
+
+  // Sólo las publicaciones no-ofensivas pueden monetizarse por publicidad
+  method puedeMonetizarse(contenido) = contenido.esContenidoOfensivo().not() // o !contenido.esContenidoOfensivo()
+
+
 }
 
 class Donacion {        // lo hago una class porque puede haber muchas donaciones y cada una tiene su monto (manipulo un estado interno para cada donacion)
   var property montoDonaciones = 0
 
   method recaudacionDe(contenido) = montoDonaciones 
+
+  method puedeMonetizarse(contenido) = true   // Todos los contenidos pueden ser monetizados por donaciones
 }
 
 class VentaDeDescarga { // lo hago una class porque cada ventadeDescarga va a tener un precioFijo
   const property precioFijo
 
   method recaudacionDe(contenido) = 5.max(precioFijo) * contenido.cantidadDeVistas()    // El valor mínimo de venta es de $5.00 y se cobra por cada vista.
+
+  method puedeMonetizarse(contenido) = contenido.esPopular()
 }
 
 // ---------------------------------------------
@@ -76,8 +95,13 @@ class Usuario {
   method esSuperUsuario() = contenidos.filter({contenido => contenido.esPopular()}).size() >= 10    // usuarios que tienen al menos 10 contenidos populares publicados).
                       // o  contenidos.count({contenido => contenido.esPopular()}) >= 10
 
-  method subirContenido(contenido, formaDeMonetizacion) 
-
+  // 3) Permitir que un usuario publique un nuevo contenido, asociandolo a una forma de monetizacion
+  method publicarContenido(contenido) { 
+    
+      contenido.monetizacion(formaDeMonetizacion)
+      contenidos.add(contenido)
+    
+  }
 }
 
 object plataforma {                 // (objeto compañero) para conductas que no dependan de un objeto en particular, se refieren al todo
