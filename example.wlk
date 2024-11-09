@@ -17,11 +17,18 @@ class Contenido {
     monetizacion = nuevaMonetizacion                // si pasa la excepcion, se asigna correctamente la monetizacion ("puede monetizarse")
   }
 
+  override method initialize(){      // para la instanciacion  
+    if(!monetizacion.puedeMonetizarse(self)){
+      throw new DomainException(message="Este contenido NO soporta la forma de monetizacion")
+    }
+  }
 
   method esPopular()                          // metodo abstracto ()"todo contenido tiene que entender este mensaje") (cada subclase lo desarolla)
-  method recaudacionMaxima()                  // metodo abstracto (cada subclase lo desarolla)                   
+  method recaudacionMaxima()                  // metodo abstracto (cada subclase lo desarrolla)                   
 
   method recaudacion() = monetizacion.recaudacionDe(self) // la recaudacion del contendio depende de su forma de monetizacion 
+
+  method puedeAlquilarse()                    // metodo abstracto (cada subclase lo desarrolla)
        
   // method puedeMonetizarse() = monetizacion.puedeMonetizarse()
 
@@ -30,6 +37,8 @@ class Contenido {
 class Video inherits Contenido {
   override method esPopular() = cantidadDeVistas > 10000 
   override method recaudacionMaxima() = 10000
+
+  override method puedeAlquilarse() = true // porque es un video
 }
 
 // La lista de tags de moda!!
@@ -41,6 +50,8 @@ class Imagen inherits Contenido {
   override method esPopular() = tagsDeModa.all({tag => tags.contains(tag)})  // una imagen es popular si está marcada con todos los tags de moda (una lista de tags arbitrarios que actualizamos a mano y puede cambiar en cualquier momento).
                                                                              // "para cada uno de los tags de Moda, yo espero que se encuentren dentro de mis tags"
   override method recaudacionMaxima() = 4000 
+
+  override method puedeAlquilarse() = false // porque NO es un video
 }
 
 // ---------------------------------------------
@@ -49,9 +60,9 @@ class Imagen inherits Contenido {
 
 object publicidad {   // es un objeto porque cualquier publicidad va a tener el mismo metodo de recaudacion (porque NO necesito manipular ningun estado interno)
 
-  // El usuario cobra 5 centavos por cada vista que haya tenido su contenido.
-  // Además los contenidos populares cobran un plus de $2000, sino no, no cobran ese plus (cada tipo tiene su forma de ser popular)
-  // Ninguna publicación puede recaudar con publicidades más de cierto máximo que depende del tipo (video o imagenes) (incluyendo el plus).
+  // 1ero) El usuario cobra 5 centavos por cada vista que haya tenido su contenido.
+  // 2dos) Además los contenidos populares cobran un plus de $2000, sino no, no cobran ese plus (cada tipo tiene su forma de ser popular)
+  // 3ero) Ninguna publicación puede recaudar con publicidades más de cierto máximo que depende del tipo (video o imagenes) (incluyendo el plus).
 
   method recaudacionDe(contenido) = (
     0.05 * contenido.cantidadDeVistas() + 
@@ -75,9 +86,20 @@ class Donacion {        // lo hago una class porque puede haber muchas donacione
 class VentaDeDescarga { // lo hago una class porque cada ventadeDescarga va a tener un precioFijo
   const property precioFijo
 
-  method recaudacionDe(contenido) = 5.max(precioFijo) * contenido.cantidadDeVistas()    // El valor mínimo de venta es de $5.00 y se cobra por cada vista.
+  method recaudacionDe(contenido) = precioFijo * contenido.cantidadDeVistas() 
+  //method recaudacionDe(contenido) = 5.max(precioFijo) * contenido.cantidadDeVistas()    // El valor mínimo de venta es de $5.00 y se cobra por cada vista.
 
   method puedeMonetizarse(contenido) = contenido.esPopular()
+}
+
+// 4) Aparece un nuevo tipo de estrategia de monetizacion: El Alquiler
+
+class Alquiler inherits VentaDeDescarga {
+
+  override method precioFijo() = 1.max(super()) // El valor mínimo de venta es de $1.00 
+    
+  override method puedeMonetizarse(contenido) = super(contenido) and contenido.puedeAlquilarse()    // el puedeAlquilarse seria un esVideo() pero el nombre "puede alquilarse" es mas descriptivo/concreto teniendo en cuenta en un futuro si aparecen otros formartos que puedan alquilarse y no soy videos
+
 }
 
 // ---------------------------------------------
@@ -97,9 +119,7 @@ class Usuario {
 
   // 3) Permitir que un usuario publique un nuevo contenido, asociandolo a una forma de monetizacion
   method publicarContenido(contenido) { 
-    
-      contenido.monetizacion(formaDeMonetizacion)
-      contenidos.add(contenido)
+      contenidos.add(contenido)   // si pudiste contruirlo, significa que es consistente (porque toda la logica de consistencia la hice en el setter, y en el initialize)
     
   }
 }
@@ -128,11 +148,30 @@ object plataforma {                 // (objeto compañero) para conductas que no
 
     method cantidadDeSuperUsuarios() = todosLosUsuarios.filter({usuario => usuario.esSuperUsuario()}).size() 
                                 // o = todosLosUsarios.count({usuario => usuario.esSuperUsuario()})
-
-
 }
 
+// PUNTO 5 
+// Responder sin implementar:
+
+// a. ¿Cuáles de los siguientes requerimientos te parece que sería el más fácil y 
+// cuál el más difícil de implementar en la solución que modelaste? Responder relacionando cada caso con conceptos del paradigma.
+// i. Agregar un nuevo tipo de contenido.
+// ii. Permitir cambiar el tipo de un contenido (e.j.: convertir un video a imagen).
+// iii. Agregar un nuevo estado “verificación fallida” a los usuarios, que no les permita cargar ningún nuevo contenido.
+
+// i. Agregar un nuevo tipo de contenido no seria para nada dificil, heredaria todos los atributos y metodos de la clase base Contenido, 
+// solo que simplemente deberia tener en cuenta aquellos metodos abstractos que son comunes a todos los contenidos 
+// y su desarrollo/implementacion que tendra en este nuevo tipo de contenido
+
+// ii. Si permito cambiar el tipo de un contenido, los tipos de contenidos ya NO podrian ser mas clases que heredad de la clase base
+// Si queremos hacer eso, podriamos hjacer una varible que se llama tipo por ej, y a ese atributo le delego las cosas del tipo de contenido
 
 
+// ¿En qué parte de tu solución se está aprovechando más el uso de polimorfismo? ¿Por qué?
 
+// Polimorfimo NO es lo mismo que Herencia
+// Polimorfismo = trato indistinto de uno o mas objetos por un tercero 
 
+// En este codigo, se utiliza el polimorfismi:
+// - saldoTotal() en Usuario, porque no distingue el tipo de contenido en ese momento
+// - recaudacion() en Contenido, porque no distingue caules es la monetizacion que tiene 
